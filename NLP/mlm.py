@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+from typing import List
 
 class ResultLog:
     def __init__(self):
@@ -40,11 +41,12 @@ class MLM(nn.Module):
         - For the loss function,
             1. we use CrossEntropyLoss(ignore_index= self.padding_token) to only accumulate loss on masked_tokens
     """
-    def __init__(self, vocab_size=10,
-                 masking_prob=0.15,
-                 no_change_prob=0.1,
-                 randomize_prob=0.1,
-                 no_mask_tokens=[]):
+    def __init__(self,
+                 vocab_size: int = 10,
+                 masking_prob: float = 0.15,
+                 no_change_prob: float = 0.1,
+                 randomize_prob: float = 0.1,
+                 no_mask_tokens: List[int] = []):
         ## the vocab size in your dictionary. This is inclusive of your [MASK] and [PAD] tokens
         self.vocab_size = vocab_size
         ## the index in vocabulary to represent the [MASK] token
@@ -62,14 +64,14 @@ class MLM(nn.Module):
         ## Sometimes, you also do not want to mask some important tokens
         self.no_mask_tokens = no_mask_tokens + [self.mask_token, self.padding_token]
 
-    def gen_sample_data(self, num_seq=3):
+    def gen_sample_data(self, num_seq: int = 3):
         """Generate `num_seq` sentences without any mask or padding tokens"""
         ## you do not want to add in the [MASK] or [PAD] tokens
         ## generate sample data of elements from 0 to self.vocab_size-2, of length 5 to 15
         single_sentence_generator = lambda: torch.randint(self.vocab_size - 2, size=(torch.randint(1, 10, size=(1,)),))
         return [single_sentence_generator() for _ in range(num_seq)]
 
-    def truncate_data(self, sample_data, max_len=3):
+    def truncate_data(self, sample_data: torch.Tensor, max_len: int = 3):
         """Truncate the tokenized data to max_len, data should be (T,B)
         where T is the max_len, and B is the batch_size
 
@@ -83,29 +85,29 @@ class MLM(nn.Module):
             batch_data[:seq_len, i] = tokenized_sent[:seq_len]
         return batch_data
 
-    def mask_tokens(self, batch_data):
+    def mask_tokens(self, batch_data: torch.Tensor):
         """Mask the batched data according to self.masking_prob"""
         masking = torch.randn(batch_data.shape) < self.masking_prob
         #         print()
         #         masked = batch_data.masked_fill_(masking, self.mask_token) # element-wise multiplication
         return masking
 
-    def mask_tokens_omit_no_mask(self, batch_data, full_mask):
+    def mask_tokens_omit_no_mask(self, batch_data: torch.Tensor, full_mask: torch.Tensor):
         """omit the tokens that should not be masked"""
         for tok in self.no_mask_tokens:
             ## full_mask &= batch_data != tok -> inplace operations, more neat
             full_mask = full_mask & (batch_data != tok)
         return full_mask
 
-    def unchanged_mask_tokens(self, full_mask):
+    def unchanged_mask_tokens(self, full_mask: torch.Tensor):
         unchanged_token_mask = full_mask & (torch.randn(full_mask.shape) < self.no_change_prob)
         return unchanged_token_mask
 
-    def random_mask_tokens(self, full_mask):
+    def random_mask_tokens(self, full_mask: torch.Tensor):
         random_token_mask = full_mask & (torch.randn(full_mask.shape) < self.randomize_prob)
         return random_token_mask
 
-    def combine_mask(self, full_mask, unchanged_token_mask, random_token_mask):
+    def combine_mask(self, full_mask: torch.Tensor, unchanged_token_mask: torch.Tensor, random_token_mask: torch.Tensor):
         """The final set of tokens that are going to be replaced by [MASK]
         This is where we make 10% of masking tokens to be unchanged,
         10% of masking tokens to be random. Important!!!
@@ -116,13 +118,13 @@ class MLM(nn.Module):
         ### The above will set False != True = True.
         return mask
 
-    def mask_fill(self, mask, batch_data):
+    def mask_fill(self, mask: torch.Tensor, batch_data: torch.Tensor):
         # remember that if you do masked_fill_, it will be an inplace operation
         batch_data = batch_data.clone()
         mask_filled_data = batch_data.masked_fill_(mask, self.mask_token)
         return mask_filled_data
 
-    def fill_random_tokens(self, mask, random_token_mask):
+    def fill_random_tokens(self, mask: torch.Tensor, random_token_mask: torch.Tensor):
         ## returns a tuple of tensors, where the first tuple represents indices in the first dim
         ## the second tuple represents indices in the second dimension, and so on if applicable
         # # (tensor([0, 0, 1, 2]), tensor([0, 1, 1, 1]))
@@ -135,10 +137,10 @@ class MLM(nn.Module):
         mask[tuple_indices] = random_tokens
         return mask
 
-    def get_labels(self, batch_data):
+    def get_labels(self, batch_data: torch.Tensor):
         return batch_data.clone()
 
-    def format_labels_for_loss(self, y, full_mask):
+    def format_labels_for_loss(self, y: torch.Tensor, full_mask: torch.Tensor):
         """Assign token [PAD] to all the other locations in the labels.
         The labels equal to [PAD] will not be used in the loss.
         """
