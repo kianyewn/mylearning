@@ -1,3 +1,16 @@
+"""
+- exp_avg, exp_avg_sq is initialized with 0
+- use inplace operations to reduce memory and efficiency
+- two separate dictionary to keep track of internal variables 
+    - `state`: which keep track of variables used in optimization) 
+        (momentum/velocity tensors which are not trainable)
+    - `group`: which keep tracks of hyperparameters (lr, eps, betas)  
+- Grad is the same shape as param (weights),
+    momentum and velocity is exponential average of grads, thus same
+    shape as grads
+
+https://nn.labml.ai/optimizers/adam.html
+"""
 class Adam:
     def __init__(self,
                  params,
@@ -13,7 +26,9 @@ class Adam:
                    state: Dict[str, any],
                    param: nn.Parameter):
         state['step'] = 0
+        # Exponential moving average of gradients, m
         state['exp_avg'] = torch.zeros_like(param)
+        # Exponential moving average of squared gradient values, v
         state['exp_avg_sq'] = torch.zeros_like(param)
         return state
     
@@ -23,6 +38,7 @@ class Adam:
                grad: torch.Tensor):
         
         beta1, beta2 = group['betas']
+        
         m, v = state['exp_avg'], state['exp_avg_sq']
         # inplace operation
         m.mul_(beta1).add_(grad, alpha = 1-beta1)
