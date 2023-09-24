@@ -18,7 +18,7 @@ lst = [5,7,22,23,30,90]
 binary_search(lst, 90, start=0, end=len(lst)-1) 
     
     
-def binary_search(sorted_lst, target, start, end):
+def binary_search2(sorted_lst, target, start, end):
     if start > end:
         return 'cannot find'
     mid = (start+end) // 2
@@ -26,13 +26,15 @@ def binary_search(sorted_lst, target, start, end):
         return mid
     if sorted_lst[mid] < target:
         # search right
-        return binary_search(sorted_lst, target, mid+1, end)
+        return binary_search2(sorted_lst, target, mid+1, end)
     elif sorted_list[mid] > target:
         # search left
-        return binary_search(sorted_lst, target, start, mid-1)
+        return binary_search2(sorted_lst, target, start, mid-1)
+    else:
+        return 'Not Found'
     
 lst = [5,7,22,23,30,90]
 # time complexity O(log(n)) because the number of times we can divide N by 2 until it becomes less than one is log(n))
 # space complexity is o(log(n))< because we call recursion log(n) times and therefore log(n) recursive depth
-binary_search(lst, 90, start=0, end=len(lst)-1) 
+binary_search2(lst, 90, start=0, end=len(lst)-1) 
     
