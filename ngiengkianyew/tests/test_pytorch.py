@@ -5,6 +5,8 @@ from sequences.tabtransformer import (Residual,
                                       FeedForward,
                                       PreNorm,
                                       Attention,
+                                      MLP,
+                                      TabTransformer
                                       )
 from einops import rearrange
 
@@ -47,8 +49,14 @@ def test_feedforward():
     x = torch.randn(2,3,4)
     ff = FeedForward(dim=4)
     assert ff(x).shape == (2,3,4)
-    
-    
+
+def test_MLP():
+    dimensions = [2,3,4]
+    x = torch.randn(1,2)
+    mlp = MLP(dimensions)
+    out = mlp(x)
+    assert out.shape == (1, 4)
+
 def test_multi_headed_attention():
     batch_size = 2
     num_cat = 4
@@ -186,3 +194,31 @@ def test_encoder_layer():
     out2 = encoder_layer2(cat_embd)
 
     assert torch.allclose(out1, out2)
+    
+    
+    
+def test_tabtransformer():
+    batch_size = 2
+    num_cat = 4
+    num_numerical=10
+    embd_dim= 5
+    num_numerical = 3
+    cat_embd = torch.randn(batch_size, num_cat, embd_dim)
+    x_numerical = torch.randn(batch_size, num_numerical)
+    x_categorical = cat_embd
+
+    num_head = 10
+    head_dim = 3
+
+    tab_transformer = TabTransformer(dim=embd_dim,
+                                    num_head=num_head,
+                                    dim_head=head_dim,
+                                    num_layers=3,
+                                    num_cat=num_cat,
+                                    num_numerical=num_numerical,
+                                    hidden_mults=(3,4),
+                                    dropout=0)
+
+
+    t_out = tab_transformer(x_categorical, x_numerical)
+    assert t_out.shape == (batch_size, 1)

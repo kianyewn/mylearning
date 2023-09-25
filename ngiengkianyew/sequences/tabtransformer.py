@@ -73,23 +73,6 @@ class Attention(nn.Module):
         out = self.dropout(out)
         return out
 
-
-# Attention
-batch_size = 2
-num_cat = 4
-embd_dim= 5
-num_numerical = 3
-cat_embd = torch.randn(batch_size, num_cat, embd_dim)
-
-input_dim = embd_dim
-num_head = 10
-head_dim = 3
-inner_dim = num_head * head_dim
-ma = Attention(dim=embd_dim, num_head=num_head, dim_head=3)
-ma(cat_embd).shape
-
-
-
 class EncoderLayer(nn.Module):
     def __init__(self, dim, num_head, dim_head, dropout=0):
         super().__init__()
@@ -107,8 +90,92 @@ class EncoderLayer(nn.Module):
         x = self.ff(x)
         return x
     
-encoder_layer = EncoderLayer(dim=embd_dim,
-                               num_head=num_head,
-                               dim_head=head_dim)
-out = encoder_layer(cat_embd)
-out.shape
+class Encoder(nn.Module):
+    def __init__(self, dim, num_head, dim_head, num_layers, dropout=0):
+        super().__init__()
+        self.blocks = nn.ModuleList(EncoderLayer(dim=dim,
+                                                 num_head=num_head,
+                                                 dim_head=dim_head,
+                                                 dropout=dropout) for _ in range(num_layers))
+    def forward(self, x):
+        for block in self.blocks:
+            x = block(x)
+            
+        return x
+    
+    
+class MLP(nn.Module):
+    def __init__(self, dimensions):
+        super().__init__()
+        linear_layers = []
+        for idx, (f_in, f_out) in enumerate(zip(dimensions[:-1], dimensions[1:])):
+            linear_layers.append(nn.Linear(f_in, f_out))
+            if idx == len(dimensions)-2:
+                continue
+            linear_layers.append(nn.ReLU())
+        self.mlp = nn.Sequential(*linear_layers)
+        
+    def forward(self, x):
+        return self.mlp(x)
+            
+
+class TabTransformer(nn.Module):
+    def __init__(self, 
+                 dim,
+                 num_head,
+                 dim_head,
+                 num_layers,
+                 num_cat,
+                 num_numerical,
+                 hidden_mults=(2,4),
+                 dropout=0):
+        super().__init__()
+        self.encoder_for_categorical = Encoder(dim=dim, 
+                                               num_head=num_head,
+                                               dim_head=dim_head,
+                                               num_layers=num_layers,
+                                               dropout=dropout)
+        self.numerical_ln = nn.LayerNorm(num_numerical)
+        
+        input_dim = dim * num_cat + num_numerical
+        hidden_dims = map(lambda x: x * input_dim, hidden_mults)
+        output_dim = 1
+        dimensions = [input_dim, *hidden_dims, output_dim]
+        self.mlp = MLP(dimensions)
+        
+    def forward(self, x_cat, x_num):
+        categorical_out = self.encoder_for_categorical(x_cat) # (B, T, E)
+        categorical_out = categorical_out.flatten(1) # (B, T * E)
+        
+        num_out = self.numerical_ln(x_num) # (B, numerical_num) -> (B, numerical_num)
+        
+        mlp_input = torch.cat([categorical_out, num_out], dim=-1) # (B, T*E + numerical_num)
+        out = self.mlp(mlp_input)
+        return out
+   
+
+# Attention
+batch_size = 2
+num_cat = 4
+num_numerical=10
+embd_dim= 5
+num_numerical = 3
+cat_embd = torch.randn(batch_size, num_cat, embd_dim)
+x_numerical = torch.randn(batch_size, num_numerical)
+x_categorical = cat_embd
+
+num_head = 10
+head_dim = 3
+
+tab_transformer = TabTransformer(dim=embd_dim,
+                                 num_head=num_head,
+                                 dim_head=head_dim,
+                                 num_layers=3,
+                                 num_cat=num_cat,
+                                 num_numerical=num_numerical,
+                                 hidden_mults=(3,4),
+                                 dropout=0)
+
+
+t_out = tab_transformer(x_categorical, x_numerical)
+t_out.shape
