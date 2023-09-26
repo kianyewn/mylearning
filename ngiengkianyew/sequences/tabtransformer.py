@@ -179,3 +179,6 @@ tab_transformer = TabTransformer(dim=embd_dim,
 
 t_out = tab_transformer(x_categorical, x_numerical)
 t_out.shape
+
+
+
