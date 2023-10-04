@@ -56,6 +56,7 @@ assert np.allclose(w, m) == False
 #################################################################################################################################
 ### Test with online code to make sure that moore-penrose method really does not work
 #################################################################################################################################
+import math
 class l1_regularization():
     """ Regularization for Lasso Regression """
     def __init__(self, alpha):
