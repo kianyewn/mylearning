@@ -180,3 +180,36 @@ lr.fit(X, y)
 m = np.linalg.lstsq(X, y)[0]
 assert np.allclose(lr.w,m) == False
 
+####################
+### investigated ###
+####################
+# Reason for the differnece is because my example dataset has some sort of miscalulation
+## This is a note to not calculate inverse, as we need to check for invertibility, rank etc etc
+### gs: np.linalg.inv vs pinv https://stackoverflow.com/questions/49357417/why-is-numpy-linalg-pinv-preferred-over-numpy-linalg-inv-for-creating-invers
+# X=np.matrix([[1,2104,5,1,45],[1,1416,3,2,40],[1,1534,3,2,30],[1,852,2,1,36]])
+X=np.matrix([[1,2104,5,],[1,1416,3,],[1,1534,3,],[1,852,2]])
+y=np.matrix([[460],[232],[315],[178]])
+
+
+XT=X.T
+XTX=XT@X
+
+pinv=np.linalg.pinv(XTX)
+# inv = np.linalg.inv(XTX)
+theta_pinv=(pinv@XT)@y
+
+# # calculate inv using pinv.
+# Since X is non-square, automatically creates a square matrix X.T.dot(X).dot(X.T)
+# theta_inv = np.linalg.pinv(X) @ y
+# theta_inv
+
+# calculate inverse using .inv()
+theta_inv = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)
+theta_inv
+
+# correct solution from numpy
+m = np.linalg.lstsq(X,y)[0]
+m
+
+assert np.allclose(m, theta_pinv) == True
+assert np.allclose(m, theta_inv) == True
