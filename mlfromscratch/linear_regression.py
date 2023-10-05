@@ -1,182 +1,73 @@
-# Build sample data
+from sklearn.datasets import make_regression
 import numpy as np
-sample = 9000
-n_features = 10
-X =  np.random.randn(sample,n_features)
+from sklearn.metrics import mean_squared_error
 
-## alternative way to build data
-# X = np.hstack([np.random.randn(sample,1) * np.random.randn(1) for _ in range(n_features)])
+## Implement from scratch MSE loss
+class MeanSquaredErrorLoss:
+    def __init__(self, X, y_true, y_pred):
+        self.loss = self.get_mean_squared_error(y_true, y_pred)
+        self.grad = self.get_mean_squared_error_grad(y_true, y_pred, X)
 
-# insert bias term coefficients
-X = np.insert(X, 0, 1, axis=1)
+    def get_mean_squared_error(self, y_true, y_pred):
+        loss = np.mean((y_true-y_pred)**2)
+        return loss
+    
+    def get_mean_squared_error_grad(self, y_true, y_pred, X):
+        n_samples = y_true.shape[0]
+        grad1 =  - 2 * 1/n_samples * (y_true-y_pred).dot(X) # (m,) , (m, n) -> (n)
+        grad =  - 2 * 1/n_samples * X.T.dot(y_true-y_pred)
+        assert np.allclose(grad1, grad)
+        return grad
 
-# set the oracle-coefficient. This is what we want to learn
-coefs = np.array([1]+ np.linspace(0,1,n_features).tolist())
-# get the true labels
-y = X.dot(coefs) + np.random.randn(sample)
+# n_samples must be small so that the impact on the floating point differences do not affect the test
+X, y = make_regression(n_samples=2, n_features=10, noise=100)
 
-# Least square analytical solution
-trained_coef = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)
-y_pred = X.dot(trained_coef)
+# originally thought this will disperse floating point differences. But no. Floating point differences come up due to number of samples (when we sum up the gradients across the samples), not magnitude of features
+# X = X * 99999999999999 # originally thought this will disperse floating point differences. But no. Floating point differences come up due to number of samples (when we sum up the gradients across the samples), not magnitude of features
 
-## verify with numpy lstsq
-m = np.linalg.lstsq(X, y)[0]
-assert np.allclose(trained_coef, m) == True
+X_coef = np.linalg.lstsq(X, y)[0]
+y_pred = X.dot(X_coef)
 
-## Plot predictions
+
+
+mse = MeanSquaredErrorLoss(X, y, y_pred)
+loss = mse.loss
+grad = mse.grad
+
+# Verify gradient logic with pytorch. 
+# Recode everything from scratch in pytorch
+import torch
+import torch.nn as nn
+
+torch_X = torch.tensor(X, requires_grad=True)
+torch_X.transpose(0,1).shape
+torch_y = torch.tensor(y, requires_grad=True)
+torch_coef = torch.linalg.lstsq(torch_X, torch_y)[0] # torch.linalg.inv(torch_X.transpose(0,1) @torch_X) @ torch_X.transpose(0,1) @ torch_y # torch.tensor(y_pred, requires_grad=True)
+torch_coef = torch.tensor(torch_coef.clone(), requires_grad=True)
+torch_y_pred = torch_X @ torch_coef
+loss = torch.mean((torch_y-torch_y_pred)**2)
+
+# gradient through torch autograd
+loss.backward()
+
+# gradient via analytical solution
+torch_grad_manual = - 2 * 1 / torch_X.shape[0] * (torch_y - torch_y_pred) @ torch_X
+
+# confirm gradient from analytical solution is same as torch autograd
+assert torch.allclose(torch_coef.grad, torch_grad_manual)
+
+# have to detach from torch due to numerical differences when converting X to torch.tensor!
+X = torch_X.detach().numpy()
+y = torch_y.detach().numpy()
+y_pred = torch_y_pred.detach().numpy()
+mse = MeanSquaredErrorLoss(X, y, y_pred)
+loss = mse.loss
+grad = mse.grad
+assert torch.allclose(torch_grad_manual, torch.tensor(grad))
+
+## addiitonal, plot the numpy prediction for first dimension
 # import matplotlib.pyplot as plt
-# plt.plot(np.arange(len(y)), y, label='original')
-# plt.plot(np.arange(len(y)), y_pred, label='trained')
+# plt.plot(res[:,0], res[:, 1], label='true')
+# plt.plot(res[:,0], res[:, 2], label='pred')
 # plt.legend()
 # plt.show()
-
-#################################################################################################################################
-## Experiment with pseudo-inverse
-## The Moore-Penrose pseudoinverse is a generalized inverse that can be applied to matrices of any rank.
-## It's more numerically stable in cases where X is not full rank.
-## Generally this is the better approach because real-world datasets may have collinear features or other numerical issues.
-## (NOTE): The solution should be the same, but this example with fully independent features led to very bad solution
-## (TODO): Investigate why.
-#################################################################################################################################
-# Formula for SVD:
-# if a SVD is applied to a square matrix 𝑀, 𝑀=𝑈𝑆𝑉𝑇, then the inverse of 𝑀 is relatively easy to calculate as 𝑀−1=𝑉𝑆−1𝑈𝑇
-# https://math.stackexchange.com/questions/1939962/singular-value-decomposition-and-inverse-of-square-matrix
-# gs: svd inverse
-# m: (N,N), U: (N, N), S: (N,), V: (N, N)
-U, S, V = np.linalg.svd(X.T.dot(X))
-S = np.diag(S) # (num_feature, num_feature)
-w = V.dot(np.linalg.pinv(S)).dot(U.T).dot(X.T).dot(y)
-y_pred_mp =  X.dot(w)
-
-## verify with numpy lstsq
-m = np.linalg.lstsq(X, y)[0]
-assert np.allclose(w, m) == False
-
-
-#################################################################################################################################
-### Test with online code to make sure that moore-penrose method really does not work
-#################################################################################################################################
-import math
-class l1_regularization():
-    """ Regularization for Lasso Regression """
-    def __init__(self, alpha):
-        self.alpha = alpha
-    
-    def __call__(self, w):
-        return self.alpha * np.linalg.norm(w)
-
-    def grad(self, w):
-        return self.alpha * np.sign(w)
-
-class l2_regularization():
-    """ Regularization for Ridge Regression """
-    def __init__(self, alpha):
-        self.alpha = alpha
-    
-    def __call__(self, w):
-        return self.alpha * 0.5 *  w.T.dot(w)
-
-    def grad(self, w):
-        return self.alpha * w
-
-class l1_l2_regularization():
-    """ Regularization for Elastic Net Regression """
-    def __init__(self, alpha, l1_ratio=0.5):
-        self.alpha = alpha
-        self.l1_ratio = l1_ratio
-
-    def __call__(self, w):
-        l1_contr = self.l1_ratio * np.linalg.norm(w)
-        l2_contr = (1 - self.l1_ratio) * 0.5 * w.T.dot(w) 
-        return self.alpha * (l1_contr + l2_contr)
-
-    def grad(self, w):
-        l1_contr = self.l1_ratio * np.sign(w)
-        l2_contr = (1 - self.l1_ratio) * w
-        return self.alpha * (l1_contr + l2_contr) 
-
-class Regression(object):
-    """ Base regression model. Models the relationship between a scalar dependent variable y and the independent 
-    variables X. 
-    Parameters:
-    -----------
-    n_iterations: float
-        The number of training iterations the algorithm will tune the weights for.
-    learning_rate: float
-        The step length that will be used when updating the weights.
-    """
-    def __init__(self, n_iterations, learning_rate):
-        self.n_iterations = n_iterations
-        self.learning_rate = learning_rate
-
-    def initialize_weights(self, n_features):
-        """ Initialize weights randomly [-1/N, 1/N] """
-        limit = 1 / math.sqrt(n_features)
-        self.w = np.random.uniform(-limit, limit, (n_features, ))
-
-    def fit(self, X, y):
-        # Insert constant ones for bias weights
-        X = np.insert(X, 0, 1, axis=1)
-        self.training_errors = []
-        self.initialize_weights(n_features=X.shape[1])
-
-        # Do gradient descent for n_iterations
-        for i in range(self.n_iterations):
-            y_pred = X.dot(self.w)
-            # Calculate l2 loss
-            mse = np.mean(0.5 * (y - y_pred)**2 + self.regularization(self.w))
-            self.training_errors.append(mse)
-            # Gradient of l2 loss w.r.t w
-            grad_w = -(y - y_pred).dot(X) + self.regularization.grad(self.w)
-            # Update the weights
-            self.w -= self.learning_rate * grad_w
-
-    def predict(self, X):
-        # Insert constant ones for bias weights
-        X = np.insert(X, 0, 1, axis=1)
-        y_pred = X.dot(self.w)
-        return y_pred
-
-class LinearRegression(Regression):
-    """Linear model.
-    Parameters:
-    -----------
-    n_iterations: float
-        The number of training iterations the algorithm will tune the weights for.
-    learning_rate: float
-        The step length that will be used when updating the weights.
-    gradient_descent: boolean
-        True or false depending if gradient descent should be used when training. If 
-        false then we use batch optimization by least squares.
-    """
-    def __init__(self, n_iterations=100, learning_rate=0.001, gradient_descent=True):
-        self.gradient_descent = gradient_descent
-        # No regularization
-        self.regularization = lambda x: 0
-        self.regularization.grad = lambda x: 0
-        super(LinearRegression, self).__init__(n_iterations=n_iterations,
-                                            learning_rate=learning_rate)
-    def fit(self, X, y):
-        # If not gradient descent => Least squares approximation of w
-        if not self.gradient_descent:
-            # Insert constant ones for bias weights
-            # X = np.insert(X, 0, 1, axis=1)
-            # Calculate weights by least squares (using Moore-Penrose pseudoinverse)
-            U, S, V = np.linalg.svd(X.T.dot(X))
-            S = np.diag(S)
-            X_sq_reg_inv = V.dot(np.linalg.pinv(S)).dot(U.T)
-            self.w = X_sq_reg_inv.dot(X.T).dot(y)
-        else:
-            super(LinearRegression, self).fit(X, y)
-
-from sklearn.datasets import make_regression
-X, y = make_regression(n_samples=100, n_features=10, noise=20)
-X = np.insert(X, 0, 1, axis=1)            
-            
-lr = LinearRegression(gradient_descent=False)
-lr.fit(X, y)
-
-## verify with numpy lstsq
-m = np.linalg.lstsq(X, y)[0]
-assert np.allclose(lr.w,m) == False
-
