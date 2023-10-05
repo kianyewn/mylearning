@@ -6,9 +6,11 @@ os.path.join(cwd,'mlfromscratch')
 
 import numpy as np
 from sklearn.datasets import make_regression
-from sklearn.metrics import mean_squared_error
+from sklearn import datasets
+from sklearn.metrics import mean_squared_error, log_loss
 from linear_regression import MeanSquaredErrorLoss
-
+import torch
+import torch.nn as nn
 
 def test_mean_squared_error():
     # Verify manual code
@@ -68,3 +70,40 @@ def test_mean_squared_error_gradient():
     loss = mse.loss
     grad = mse.grad
     assert torch.allclose(torch_grad_manual, torch.tensor(grad))
+
+    
+def test_log_loss():
+    def custom_log_loss(y_true, y_prob):
+        # prob_0 = 1 - y_prob
+        loss = - np.mean(y_true * np.log(y_prob) + (1-y_true) * np.log(1-y_prob))
+        return loss
+    # test with scikit learn 
+    y = np.array([1,0,1,0,1,0,1,0,0,0])
+    y_prob = np.random.uniform(0, 1, size=(len(y)))
+    my_loss = custom_log_loss(y, y_prob)            
+    sk_loss = log_loss(y, y_prob)
+    # verify log_loss
+    assert np.allclose(my_loss, sk_loss)
+
+def test_log_loss_gradient():
+    dataset = datasets.load_iris()
+    X = dataset.data
+    y = dataset.target
+    y = np.array([yi if yi < 1 else 1 for yi in y])
+    torch.manual_seed(229)
+    # logistc regression prediction
+    X_pt = torch.tensor(X, dtype=float, requires_grad=False)
+    weights = torch.randn(X.shape[-1], dtype=float)
+    weights = torch.tensor(weights.clone(), requires_grad=True)
+    pred = X_pt @ weights
+    sigmoid = nn.Sigmoid()
+    prob = sigmoid(pred)
+
+    # get log loss via autograd
+    y_pt = torch.tensor(y, dtype=torch.long)
+    log_loss = -torch.mean(y_pt * torch.log(prob) + (1-y_pt) * torch.log(1-y_pt))
+    log_loss.backward()
+    
+    # manual calculation of gradinet
+    manual_grad = (1 / y_pt.shape[0]) * (prob - y_pt) @ (X_pt)
+    assert torch.allclose(weights.grad, manual_grad, atol=0.1)
