@@ -18,56 +18,46 @@ class MeanSquaredErrorLoss:
         grad =  - 2 * 1/n_samples * X.T.dot(y_true-y_pred)
         assert np.allclose(grad1, grad)
         return grad
+    
+    
+class LinearRegression:
+    def __init__(self, n_features):
+        self.w = self.init_weights(n_features)
+        self.losses = []
 
-# n_samples must be small so that the impact on the floating point differences do not affect the test
-X, y = make_regression(n_samples=2, n_features=10, noise=100)
+    def init_weights(self, n_features):
+        return np.random.uniform(0,1, size=(n_features)) * 1 / np.sqrt(n_features)
+    
+    def fit(self, X, y, learning_rate=1e-3, n_iterations=100):
 
-# originally thought this will disperse floating point differences. But no. Floating point differences come up due to number of samples (when we sum up the gradients across the samples), not magnitude of features
-# X = X * 99999999999999 # originally thought this will disperse floating point differences. But no. Floating point differences come up due to number of samples (when we sum up the gradients across the samples), not magnitude of features
+        for _ in range(n_iterations):
+            y_pred = X.dot(self.w) # (M,N), (N) -> (M,)
+            mse = MeanSquaredErrorLoss(X, y, y_pred)
+            loss = mse.loss
+            self.losses.append(loss)
+            grad = mse.grad
+            self.w -=  learning_rate * grad
+        return
 
-X_coef = np.linalg.lstsq(X, y)[0]
-y_pred = X.dot(X_coef)
+    def predict(self, X):
+        y_pred = X.dot(self.w)
+        return y_pred
+if __name__ == '__main__':
+    X, y = make_regression(n_samples=100, n_features=10, noise=100)
+    lr = LinearRegression(n_features=10)   
+    lr.fit(X, y, learning_rate=1e-3, n_iterations=5000) 
 
+    # import matplotlib.pyplot as plt
+    # plt.plot(lr.losses)
+    # plt.show()
+                
+    lstsq_sol = np.linalg.lstsq(X,y)
+    assert np.allclose(lstsq_sol, lr.w)
+        
 
-
-mse = MeanSquaredErrorLoss(X, y, y_pred)
-loss = mse.loss
-grad = mse.grad
-
-# Verify gradient logic with pytorch. 
-# Recode everything from scratch in pytorch
-import torch
-import torch.nn as nn
-
-torch_X = torch.tensor(X, requires_grad=True)
-torch_X.transpose(0,1).shape
-torch_y = torch.tensor(y, requires_grad=True)
-torch_coef = torch.linalg.lstsq(torch_X, torch_y)[0] # torch.linalg.inv(torch_X.transpose(0,1) @torch_X) @ torch_X.transpose(0,1) @ torch_y # torch.tensor(y_pred, requires_grad=True)
-torch_coef = torch.tensor(torch_coef.clone(), requires_grad=True)
-torch_y_pred = torch_X @ torch_coef
-loss = torch.mean((torch_y-torch_y_pred)**2)
-
-# gradient through torch autograd
-loss.backward()
-
-# gradient via analytical solution
-torch_grad_manual = - 2 * 1 / torch_X.shape[0] * (torch_y - torch_y_pred) @ torch_X
-
-# confirm gradient from analytical solution is same as torch autograd
-assert torch.allclose(torch_coef.grad, torch_grad_manual)
-
-# have to detach from torch due to numerical differences when converting X to torch.tensor!
-X = torch_X.detach().numpy()
-y = torch_y.detach().numpy()
-y_pred = torch_y_pred.detach().numpy()
-mse = MeanSquaredErrorLoss(X, y, y_pred)
-loss = mse.loss
-grad = mse.grad
-assert torch.allclose(torch_grad_manual, torch.tensor(grad))
-
-## addiitonal, plot the numpy prediction for first dimension
-# import matplotlib.pyplot as plt
-# plt.plot(res[:,0], res[:, 1], label='true')
-# plt.plot(res[:,0], res[:, 2], label='pred')
-# plt.legend()
-# plt.show()
+    ## addiitonal, plot the numpy prediction for first dimension
+    # import matplotlib.pyplot as plt
+    # plt.plot(res[:,0], res[:, 1], label='true')
+    # plt.plot(res[:,0], res[:, 2], label='pred')
+    # plt.legend()
+    # plt.show()
