@@ -19,42 +19,129 @@ class MeanSquaredErrorLoss:
         assert np.allclose(grad1, grad)
         return grad
     
+class l1_regularization:
+    def __init__(self, l1_lambda=0):
+        self.l1_lambda = l1_lambda
+        
+    def loss(self,  w):
+        # return self.l1_lambda * np.linalg.norm(w)
+        return self.l1_lambda * np.sum(np.abs(w))
+
+    def grad(self, w):
+        return self.l1_lambda * np.sign(w)
+
+class l2_regularization:
+    def __init__(self, l2_lambda):
+        self.l2_lambda = l2_lambda
+
+    def loss(self, w):
+        return self.l2_lambda * np.linalg.norm(w) ** 2
     
+    def grad(self, w):
+        return self.l2_lambda * 2 * w
+
+class l1_l2_regularization:
+    def __init__(self, alpha, l1_ratio):
+        self.alpha = alpha 
+        self.l1_ratio = l1_ratio
+        
+    def loss(self, w):
+        l1_loss = self.l1_ratio * np.sum(np.abs(w))
+        l2_loss = (1-self.l1_ratio) * np.sum(w * w)
+        return self.alpha * (l1_loss + l2_loss)
+    
+    def grad(self,w ):
+        l1_grad = self.l1_ratio * np.sign(w)
+        l2_grad = (1-self.l1_ratio) * 2 * w
+        return self.alpha * (l1_grad + l2_grad)
+    
+l1_reg = l1_regularization(l1_lambda=0.1)
+w = np.random.randn(10)
+l1_reg.loss(w=w)
+l1_reg.grad(w=w)
+
+l2_reg = l2_regularization(l2_lambda=0.1)
+l2_reg.loss(w)
+l2_reg.grad(w)
+
+alpha = 0.1
+l1_ratio = 0
+l1_l2_reg = l1_l2_regularization(alpha=alpha, l1_ratio=l1_ratio)
+assert np.allclose(l2_reg.loss(w), l1_l2_reg.loss(w))
+
+alpha = 0.1
+l1_ratio = 1
+l1_l2_reg = l1_l2_regularization(alpha=alpha, l1_ratio=l1_ratio)
+assert np.allclose(l1_reg.loss(w), l1_l2_reg.loss(w)), f'loss: {l1_reg.loss(w)}, {l1_l2_reg.loss(w)}'
+
 class LinearRegression:
-    def __init__(self, n_features):
+    def __init__(self, n_features, regularizer=None):
         self.w = self.init_weights(n_features)
         self.losses = []
+        self.regularizer = regularizer
 
     def init_weights(self, n_features):
         return np.random.uniform(0,1, size=(n_features)) * 1 / np.sqrt(n_features)
     
     def fit(self, X, y, learning_rate=1e-3, n_iterations=100):
-
         for _ in range(n_iterations):
             y_pred = X.dot(self.w) # (M,N), (N) -> (M,)
             mse = MeanSquaredErrorLoss(X, y, y_pred)
             loss = mse.loss
+            if self.regularizer:
+                loss += self.regularizer.loss(w)
             self.losses.append(loss)
             grad = mse.grad
+            if self.regularizer:
+                grad += self.regularizer.grad(w)
             self.w -=  learning_rate * grad
         return
 
     def predict(self, X):
         y_pred = X.dot(self.w)
         return y_pred
+
+        
+
 if __name__ == '__main__':
     X, y = make_regression(n_samples=100, n_features=10, noise=100)
     lr = LinearRegression(n_features=10)   
-    lr.fit(X, y, learning_rate=1e-3, n_iterations=5000) 
-
+    lr.fit(X, y, learning_rate=1e-3, n_iterations=9000) 
+    losses_og = lr.losses
     # import matplotlib.pyplot as plt
     # plt.plot(lr.losses)
     # plt.show()
                 
-    lstsq_sol = np.linalg.lstsq(X,y)
+    lstsq_sol = np.linalg.lstsq(X,y)[0]
     assert np.allclose(lstsq_sol, lr.w)
         
-
+    # l1_regularization
+    l1_reg = l1_regularization(l1_lambda=0.1)
+    lr = LinearRegression(n_features=10, regularizer=l1_reg)   
+    lr.fit(X, y, learning_rate=1e-3, n_iterations=9000)
+    losses_l1= lr.losses 
+    
+    # l2_regularization
+    l2_reg = l2_regularization(l2_lambda=0.1)
+    lr = LinearRegression(n_features=10, regularizer=l2_reg)   
+    lr.fit(X, y, learning_rate=1e-3, n_iterations=9000)
+    losses_l2 = lr.losses 
+    
+    # elastic net regularization
+    l1_l2_reg = l2_regularization(alpha=0.1, l1_ratio=0.5)
+    lr = LinearRegression(n_features=10, regularizer=l1_l2_reg)   
+    lr.fit(X, y, learning_rate=1e-3, n_iterations=9000)
+    losses_l1_l2= lr.losses 
+    
+    import matplotlib.pyplot as plt
+    plt.plot(losses_og, label='original loss')
+    plt.plot(losses_l1, label='l1 loss')
+    plt.plot(losses_l2, label='l2 loss')
+    plt.plot(losses_l1_l2, label='l1_l2 loss')
+    
+    plt.show()
+                
+        
     ## addiitonal, plot the numpy prediction for first dimension
     # import matplotlib.pyplot as plt
     # plt.plot(res[:,0], res[:, 1], label='true')
