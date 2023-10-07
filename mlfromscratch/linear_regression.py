@@ -68,12 +68,12 @@ class LinearRegression:
             y_pred = X.dot(self.w) # (M,N), (N) -> (M,)
             mse = MeanSquaredErrorLoss(X, y, y_pred)
             loss = mse.loss
-            if self.regularizer:
-                loss += self.regularizer.loss(w)
+            if self.regularizer is not None:
+                loss += self.regularizer.loss(self.w)
             self.losses.append(loss)
             grad = mse.grad
-            if self.regularizer:
-                grad += self.regularizer.grad(w)
+            if self.regularizer is not None:
+                grad += self.regularizer.grad(self.w)
             self.w -=  learning_rate * grad
         return
 
@@ -116,7 +116,6 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
                 
-        
     ## addiitonal, plot the numpy prediction for first dimension
     # import matplotlib.pyplot as plt
     # plt.plot(res[:,0], res[:, 1], label='true')
