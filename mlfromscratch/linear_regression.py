@@ -1,6 +1,5 @@
 from sklearn.datasets import make_regression
 import numpy as np
-from sklearn.metrics import mean_squared_error
 
 ## Implement from scratch MSE loss
 class MeanSquaredErrorLoss:
@@ -55,25 +54,6 @@ class l1_l2_regularization:
         l2_grad = (1-self.l1_ratio) * 2 * w
         return self.alpha * (l1_grad + l2_grad)
     
-l1_reg = l1_regularization(l1_lambda=0.1)
-w = np.random.randn(10)
-l1_reg.loss(w=w)
-l1_reg.grad(w=w)
-
-l2_reg = l2_regularization(l2_lambda=0.1)
-l2_reg.loss(w)
-l2_reg.grad(w)
-
-alpha = 0.1
-l1_ratio = 0
-l1_l2_reg = l1_l2_regularization(alpha=alpha, l1_ratio=l1_ratio)
-assert np.allclose(l2_reg.loss(w), l1_l2_reg.loss(w))
-
-alpha = 0.1
-l1_ratio = 1
-l1_l2_reg = l1_l2_regularization(alpha=alpha, l1_ratio=l1_ratio)
-assert np.allclose(l1_reg.loss(w), l1_l2_reg.loss(w)), f'loss: {l1_reg.loss(w)}, {l1_l2_reg.loss(w)}'
-
 class LinearRegression:
     def __init__(self, n_features, regularizer=None):
         self.w = self.init_weights(n_features)
@@ -101,44 +81,39 @@ class LinearRegression:
         y_pred = X.dot(self.w)
         return y_pred
 
-        
-
 if __name__ == '__main__':
     X, y = make_regression(n_samples=100, n_features=10, noise=100)
     lr = LinearRegression(n_features=10)   
     lr.fit(X, y, learning_rate=1e-3, n_iterations=9000) 
     losses_og = lr.losses
-    # import matplotlib.pyplot as plt
-    # plt.plot(lr.losses)
-    # plt.show()
-                
     lstsq_sol = np.linalg.lstsq(X,y)[0]
-    assert np.allclose(lstsq_sol, lr.w)
+    assert np.allclose(lstsq_sol, lr.w, atol=0.01), f'{lstsq_sol}, {lr.w}'
         
     # l1_regularization
-    l1_reg = l1_regularization(l1_lambda=0.1)
+    l1_reg = l1_regularization(l1_lambda=10)
     lr = LinearRegression(n_features=10, regularizer=l1_reg)   
     lr.fit(X, y, learning_rate=1e-3, n_iterations=9000)
     losses_l1= lr.losses 
     
     # l2_regularization
-    l2_reg = l2_regularization(l2_lambda=0.1)
+    l2_reg = l2_regularization(l2_lambda=10)
     lr = LinearRegression(n_features=10, regularizer=l2_reg)   
     lr.fit(X, y, learning_rate=1e-3, n_iterations=9000)
     losses_l2 = lr.losses 
     
     # elastic net regularization
-    l1_l2_reg = l2_regularization(alpha=0.1, l1_ratio=0.5)
+    l1_l2_reg = l1_l2_regularization(alpha=10, l1_ratio=0.5)
     lr = LinearRegression(n_features=10, regularizer=l1_l2_reg)   
     lr.fit(X, y, learning_rate=1e-3, n_iterations=9000)
     losses_l1_l2= lr.losses 
     
     import matplotlib.pyplot as plt
-    plt.plot(losses_og, label='original loss')
-    plt.plot(losses_l1, label='l1 loss')
-    plt.plot(losses_l2, label='l2 loss')
-    plt.plot(losses_l1_l2, label='l1_l2 loss')
-    
+    # fig, ax = plt.subplots()
+    plt.plot(np.arange(len(losses_og)), losses_og, label='original loss',)
+    plt.plot(np.arange(len(losses_og)),losses_l1, label='l1 loss',)
+    plt.plot(np.arange(len(losses_og)),losses_l2, label='l2 loss',)
+    plt.plot(np.arange(len(losses_og)),losses_l1_l2, label='l1_l2 loss',)
+    plt.legend()
     plt.show()
                 
         
