@@ -1,5 +1,5 @@
 from sklearn.base import TransformerMixin
-
+from sklearn.isotonic import IsotonicRegression
 class Calibration(TransformerMixin):
     def __init__(self, nbins=25, degree=1):
         self.nbins = nbins
@@ -39,16 +39,29 @@ class Calibration(TransformerMixin):
         df_cal['ln_odds_expected_percentage'] = df_cal['adj_expected_percentage'].apply(lambda x: self.prob2lnodds(x))
         df_cal['ln_odds_actual_percentage'] = df_cal['actual_percentage'].apply(lambda x: self.prob2lnodds(x))
         
-        calibration_coef = np.polyfit(x=df_cal['ln_odds_actual_percentage'], y=df_cal['ln_odds_expected_percentage'], deg=self.degree)
         self.df_cal = df_cal
-        self.calibration_coef = calibration_coef
+        # use sigmoid calibration if degree > 0
+        if self.degree > 0:
+            self.calibration_coef = np.polyfit(x=df_cal['ln_odds_actual_percentage'], y=df_cal['ln_odds_expected_percentage'], deg=self.degree)
+        # use isotonic regression. We use Isotonic regression over linear regression because
+        # (1) Isotonic regression does not assume a line as target function
+        # (2) It builds up as a minimizaton of weighted least squares
+        # (3) If we want to conduct an experiment where order is expected, Isotonic Regression is a good choice
+        else:
+            self.calibration_coef = IsotonicRegression(y_min=-99, y_max=99, out_of_bounds='clip')
+            self.calibration_coef.fit(df_cal['ln_odds_actual_percentage'], y=df_cal['ln_odds_expected_percentage'])
+            
         return 
     
     def transform(self, prob):
         lst_prob = prob.tolist()
         ln_odds_lst_prob = [self.prob2lnodds(x) for x in lst_prob]
-        ln_odds_lst_prob_pred = np.poly1d(self.calibration_coef)(ln_odds_lst_prob)
-        calibrated_prob = [self.lnodds2prob(x) for x in ln_odds_lst_prob_pred]
+        if self.degree > 0:
+            ln_odds_lst_prob_pred = np.poly1d(self.calibration_coef)(ln_odds_lst_prob)
+            calibrated_prob = [self.lnodds2prob(x) for x in ln_odds_lst_prob_pred]
+        else:
+            ln_odds_lst_prob_pred = self.calibration_coef.predict(np.array(ln_odds_lst_prob))
+            calibrated_prob = [self.lnodds2prob(x) for x in ln_odds_lst_prob_pred]
         return calibrated_prob
     
 #     def transform_inverse(self, calib_prob):
@@ -81,5 +94,10 @@ if __name__ == '__main__':
     pred = pred / pred.sum(axis=-1, keepdims=True)
     # do calibration with sigmoid
     calib = Calibration()
+    calib.fit(pred[:,1], y)
+    calibrated_probabilities = calib.transform(pred[:,1])
+
+    # do calibration with isotonic regression
+    calib = Calibration(degree=0)
     calib.fit(pred[:,1], y)
     calibrated_probabilities = calib.transform(pred[:,1])
