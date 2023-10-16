@@ -10,7 +10,6 @@ class DecisionNode:
     right_branch: Any = None
     value: float = None
     
-    
 def divide_on_feature(X, feature_i, threshold):
     if isinstance(threshold, int) or isinstance(threshold, float):
         filter_cond = lambda x: x[feature_i] >= threshold
@@ -137,104 +136,101 @@ clf2 = RegressionDecisionTree()
 clf2.fit(X, y)
 # clf.predict_sample(X[5:6])
 pred2 = clf2.predict(X)
-
+clf2.root
 np.mean((y - pred2)**2)
-# class GradientBoosting(object):
-#     """Super class of GradientBoostingClassifier and GradientBoostinRegressor. 
-#     Uses a collection of regression trees that trains on predicting the gradient
-#     of the loss function. 
 
-#     Parameters:
-#     -----------
-#     n_estimators: int
-#         The number of classification trees that are used.
-#     learning_rate: float
-#         The step length that will be taken when following the negative gradient during
-#         training.
-#     min_samples_split: int
-#         The minimum number of samples needed to make a split when building a tree.
-#     min_impurity: float
-#         The minimum impurity required to split the tree further. 
-#     max_depth: int
-#         The maximum depth of a tree.
-#     regression: boolean
-#         True or false depending on if we're doing regression or classification.
-#     """
-#     def __init__(self, n_estimators, learning_rate, min_samples_split,
-#                  min_impurity, max_depth, regression):
-#         self.n_estimators = n_estimators
-#         self.learning_rate = learning_rate
-#         self.min_samples_split = min_samples_split
-#         self.min_impurity = min_impurity
-#         self.max_depth = max_depth
-#         self.regression = regression
-#         self.bar = progressbar.ProgressBar(widgets=bar_widgets)
+# Gradient Boosting
+class GradientBoosting:
+    def __init__(self,
+                 n_estimators=3,
+                 max_depth=5, 
+                 min_samples=2,
+                 min_impurity=1e-7, 
+                 learning_rate=0.5):
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.min_samples = min_samples
+        self.min_impurity = min_impurity
+        self.learning_rate = learning_rate
         
-#         # Square loss for regression
-#         # Log loss for classification
-#         self.loss = SquareLoss()
-#         if not self.regression:
-#             self.loss = CrossEntropy()
+        self.trees = [RegressionDecisionTree(min_samples = self.min_samples,
+                                             max_depth=self.max_depth,
+                                             min_impurity=self.min_impurity) for n in range(self.n_esimators)]
+        self.initial_pred = None
+        
+    def fit(self, X, y):
+        self.initial_pred = np.mean(y)
+        y_pred = np.zeros(len(y))
+        y_pred[:] = self.initial_pred
+        for n in self.n_estimators:
+            # gradient of mean squared error
+            pseudo_residuals = - (y - y_pred)
+            self.tree[n].fit(X, pseudo_residuals)
+            # average residual is the prediction that will minimize the MSE loss function in this iteration
+            pred = self.tree[n].predict(X)
+            # negative for negative gradient descent
+            y_pred = y_pred - self.learning_rate * pred
+        return
+    
+    def predict(self, X):
+        y_pred = np.zeros(len(X))
+        y_pred[:] = self.initial_pred
+        for tree in self.trees:
+            pred = tree.predict(X)
+            y_pred = y_pred - self.learning_rate * pred
+        return y_pred
+            
+            
+gbt = GradientBoosting()
+gbt.fit(X,y)     
 
-#         # Initialize regression trees
-#         self.trees = []
-#         for _ in range(n_estimators):
-#             tree = RegressionTree(
-#                     min_samples_split=self.min_samples_split,
-#                     min_impurity=min_impurity,
-#                     max_depth=self.max_depth)
-#             self.trees.append(tree)
+n_estimators = 3
+max_depth = 10000
+min_samples = 2
+min_impurity = 1e-7
+trees = [RegressionDecisionTree(max_depth=max_depth,
+                                min_impurity=min_impurity,
+                                min_samples=min_samples) for _ in range(n_estimators)]
+
+trees[0].fit(X, y)
+pred2 = trees[0].predict(X)
+np.mean((y - pred2)**2)
+
+initial_pred = y.mean()
+y_preds = np.zeros((len(y)))
+y_preds[:] = initial_pred
+learning_rate = 0.1
+for n in range(n_estimators):
+    pseudo_residuals = y - y_preds
+    trees[n].fit(X, pseudo_residuals)
+    pred = np.array(trees[n].predict(X))
+    # update model. Fm(x) = Fm-1(x) + alpha * new_residual prediction
+    y_preds = y_preds + 0.5 * pred
+    
+## make predictions
+
+y_pred = np.mean(y)
+for tree in trees:
+    pred = tree.predict(X)
+    y_pred = y_pred + pred
+    
+    
+    
+# y_pred = np.array([])
+y_pred = np.mean(y)
+# Make predictions
+for tree in trees:
+    update = tree.predict(X)
+    update = np.multiply(learning_rate, update)
+    # y_pred = update if not y_pred.any() else y_pred + update
+    y_pred = y_pred + update
+
+loss2 = abs(y_pred - y).sum()
+loss2 # 23981.051470588238
 
 
-#     def fit(self, X, y):
-#         y_pred = np.full(np.shape(y), np.mean(y, axis=0))
-#         for i in self.bar(range(self.n_estimators)):
-#             # predict the residual. The residual is the gradient - (y_true - y_pred) from MSEloss
-#             gradient = self.loss.gradient(y, y_pred)
-#             # fit on the residual
-#             self.trees[i].fit(X, gradient)
-#             # predict the residual. When we make a prediction, we are calculating the average of the observed yi, this is the gamma
-#             update = self.trees[i].predict(X)
-#             # Update y prediction by adding the residual
-#             y_pred -= np.multiply(self.learning_rate, update)
+loss1 = abs(y_pred - y).sum()
+loss1 # 67243.0
 
 
-#     def predict(self, X):
-#         y_pred = np.array([])
-#         # Make predictions
-#         for tree in self.trees:
-#             update = tree.predict(X)
-#             update = np.multiply(self.learning_rate, update)
-#             y_pred = -update if not y_pred.any() else y_pred - update
 
-#         if not self.regression:
-#             # Turn into probability distribution
-#             y_pred = np.exp(y_pred) / np.expand_dims(np.sum(np.exp(y_pred), axis=1), axis=1)
-#             # Set label to the value that maximizes probability
-#             y_pred = np.argmax(y_pred, axis=1)
-#         return y_pred
-
-
-# class GradientBoostingRegressor(GradientBoosting):
-#     def __init__(self, n_estimators=200, learning_rate=0.5, min_samples_split=2,
-#                  min_var_red=1e-7, max_depth=4, debug=False):
-#         super(GradientBoostingRegressor, self).__init__(n_estimators=n_estimators, 
-#             learning_rate=learning_rate, 
-#             min_samples_split=min_samples_split, 
-#             min_impurity=min_var_red,
-#             max_depth=max_depth,
-#             regression=True)
-
-# class GradientBoostingClassifier(GradientBoosting):
-#     def __init__(self, n_estimators=200, learning_rate=.5, min_samples_split=2,
-#                  min_info_gain=1e-7, max_depth=2, debug=False):
-#         super(GradientBoostingClassifier, self).__init__(n_estimators=n_estimators, 
-#             learning_rate=learning_rate, 
-#             min_samples_split=min_samples_split, 
-#             min_impurity=min_info_gain,
-#             max_depth=max_depth,
-#             regression=False)
-
-#     def fit(self, X, y):
-#         y = to_categorical(y)
-#         super(GradientBoostingClassifier, self).fit(X, y)
