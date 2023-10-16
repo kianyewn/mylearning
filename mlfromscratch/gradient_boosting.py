@@ -55,7 +55,7 @@ class RegressionDecisionTree:
         self.max_depth = max_depth
         self.min_impurity = min_impurity
         
-    def _build_tree(self, X, y, max_depth):
+    def _build_tree(self, X, y, current_depth):
         if len(y.shape) == 1:
             y = y.rehape(-1,1)
         
@@ -64,7 +64,7 @@ class RegressionDecisionTree:
         largest_impurity = 0
         best_criteria = None
         best_splits = None
-        if n_samples >= self.min_samples and max_depth <= self.max_depth: 
+        if n_samples >= self.min_samples and current_depth <= self.max_depth: 
             for feature_i in range(len(n_features)):
                 unique_values = np.unique(X[:, feature_i])
                 for threshold in unique_values:
@@ -86,10 +86,10 @@ class RegressionDecisionTree:
         if largest_impurity > self.min_impurity:
             left_branch = self._build_tree(X=best_splits['left_branch_X'],
                                             y= best_splits['left_branch_y'],
-                                            max_depth = max_depth+1)
+                                            current_depth = current_depth+1)
             right_branch = self._build_tree(X= best_splits['right_branch_X'],
                                             y = best_splits['right_branch_y'],
-                                            max_depth = max_depth+1)
+                                            current_depth= current_depth+1)
             
             return DecisionNode(feature_i = best_criteria['feature_i'],
                                 threshold = best_criteria['threshold'],
