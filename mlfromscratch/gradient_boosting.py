@@ -11,17 +11,17 @@ class DecisionNode:
     value: float = None
     
     
-def divide_on_feature(self, X, feature_i, threshold):
+def divide_on_feature(X, feature_i, threshold):
     if isinstance(threshold, int) or isinstance(threshold, float):
         filter_cond = lambda x: x[feature_i] >= threshold
     else:
-        filter_con = lambda x: x[feature_i] == threshold
+        filter_cond = lambda x: x[feature_i] == threshold
         
     # X1 = X[[filter_cond(sample) for sample in X]]
     # X2 = X[[not filter_cond(sample) for sample in X]]
     X_1 = np.array([sample for sample in X if filter_cond(sample)])
     X_2 = np.array([sample for sample in X if not filter_cond(sample)])
-    return np.array([X_1, X_2])
+    return [X_1, X_2]
 
 def calculate_variance(X):
     """Calculate Variance based on 2-d np array (n_samples, features)
@@ -44,20 +44,21 @@ def variance_reduction(y, y1, y2):
     var_reduc = y_var - ((y1_n_samples / y_samples) * y1_var + (y2_n_samples/y_samples) * y2_var)
     return np.sum(var_reduc)
     
-    
-    
 class RegressionDecisionTree:
     def __init__(self, 
-                 min_samples,
-                 max_depth,
-                 min_impurity):
+                 min_samples=2,
+                 max_depth=float('inf'),
+                 min_impurity=1e-7):
         self.min_samples = min_samples    
         self.max_depth = max_depth
         self.min_impurity = min_impurity
+       
+        # to be build after calling self.fit 
+        self.root = None
         
-    def _build_tree(self, X, y, current_depth):
+    def _build_tree(self, X, y, current_depth=0):
         if len(y.shape) == 1:
-            y = y.rehape(-1,1)
+            y = y.reshape(-1,1)
         
         n_samples, n_features = X.shape
         Xy = np.concatenate([X, y], axis=1)
@@ -65,10 +66,10 @@ class RegressionDecisionTree:
         best_criteria = None
         best_splits = None
         if n_samples >= self.min_samples and current_depth <= self.max_depth: 
-            for feature_i in range(len(n_features)):
+            for feature_i in range(n_features):
                 unique_values = np.unique(X[:, feature_i])
                 for threshold in unique_values:
-                    Xy1, Xy2 = divide_on_feature(Xy,feature_i, threshold)
+                    Xy1, Xy2 = divide_on_feature(Xy, feature_i, threshold)
                     
                     if len(Xy1) >0 and len(Xy2) > 0:
                         y1 = Xy2[:, n_features:]
@@ -98,8 +99,46 @@ class RegressionDecisionTree:
         else:
             leaf_value = np.mean(y)
             return DecisionNode(value= leaf_value)
-                
+     
+    def fit(self, X, y):
+        self.root = self._build_tree(X, y)
+        return self
+   
+    def predict_sample(self, xs, root=None):
+        if root is None:
+            root = self.root
         
+        if root.value:
+            return root.value
+            
+        feature_i = root.feature_i
+        threshold = root.threshold
+        
+        feature_value = xs[feature_i]
+        branch = root.right_branch
+        if isinstance(threshold, float) or isinstance(threshold, int):
+            if feature_value >= threshold:
+                branch = root.left_branch
+        if isinstance(threshold, str):
+            if feature_value == threshold:
+                branch = root.left_branch
+        return self.predict_sample(xs, root=branch)
+    def predict(self, X):
+        pred = [self.predict_sample(xs) for xs in X]
+        return pred
+                
+from sklearn import datasets
+# dataset = datasets.load_iris()
+dataset = datasets.load_diabetes()
+X, y = dataset.data, dataset.target
+# y = np.array([1 if yi > 1 else yi for yi in y])
+clf2 = RegressionDecisionTree()           
+# clf._build_tree(X, y)     
+clf2.fit(X, y)
+# clf.predict_sample(X[5:6])
+pred2 = clf2.predict(X)
+
+np.mean((y - pred2)**2)
 # class GradientBoosting(object):
 #     """Super class of GradientBoostingClassifier and GradientBoostinRegressor. 
 #     Uses a collection of regression trees that trains on predicting the gradient
