@@ -64,7 +64,7 @@ class RegressionDecisionTree:
         largest_impurity = 0
         best_criteria = None
         best_splits = None
-        if n_samples >= self.min_samples and max_depth < self.max_depth: 
+        if n_samples >= self.min_samples and max_depth <= self.max_depth: 
             for feature_i in range(len(n_features)):
                 unique_values = np.unique(X[:, feature_i])
                 for threshold in unique_values:
