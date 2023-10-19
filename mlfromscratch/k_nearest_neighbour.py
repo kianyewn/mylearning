@@ -18,7 +18,6 @@ def index_top_similar(index, similarity_matrix):
     return similarity
  
 def majority_vote(y):
-    labels = {}
     majority_label = None
     max_count = 0
     unique_yi = np.unique(y)
@@ -72,14 +71,5 @@ for index,features in enumerate(X_test):
     pred = majority_vote(y_k) 
     y_pred.append(pred)
     
-# clf = DecisionTree()
-# clf.fit(X_train, y_train)
-# y_pred = clf.predict(X_test)
-
-
 accuracy = accuracy_score(y_test, y_pred)
-
 print ("Accuracy:", accuracy)
-
-
-from sklearn.neighbors import KNeighborsClassifier
