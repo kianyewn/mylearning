@@ -27,7 +27,7 @@ def binary_search2(sorted_lst, target, start, end):
     if sorted_lst[mid] < target:
         # search right
         return binary_search2(sorted_lst, target, mid+1, end)
-    elif sorted_list[mid] > target:
+    elif sorted_lst[mid] > target:
         # search left
         return binary_search2(sorted_lst, target, start, mid-1)
     else:

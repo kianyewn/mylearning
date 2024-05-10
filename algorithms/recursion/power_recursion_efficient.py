@@ -12,6 +12,16 @@ def power(x, n):
             square = ele * ele * x
             return square
         
+        
+def my_power(x,n):
+    if n == 1:
+        return x
+    elif n%2 == 0:
+        partial = my_power(x, n//2)
+        return partial * partial
+    else:
+        partial = my_power(x, n//2)
+        return partial * partial * x
 # time complexity: O(N). False this is O(log(n)) because  number of times we can devide N until it gets to one or less is O(log(N))
 # space compelxity: N/2 +1 recursive calls = O(N). False, this is O(log(n)) as well because the recursive depth is O(log(N)) as well.
 # space is due to recursive depth calls.
@@ -38,3 +48,6 @@ def power(x,n):
 x = 2
 power(x, 8)
             
+            
+            
+my_power(x, 0)
