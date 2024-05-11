@@ -34,6 +34,21 @@ def isValidBST(root):
     _, _, valid = isValid(root)
     return valid
 
+def isValidBST(root):
+    def isValid(root, cur_left_max, cur_right_min):
+        if root is None:
+            return True
+
+        is_valid_left = isValid(root.left, cur_left_max = cur_left_max, cur_right_min = root.val)
+        is_valid_right = isValid(root.right, cur_left_max = root.val, cur_right_min=cur_right_min)
+        
+        if root.val <= cur_left_max or root.val >= cur_right_min or not is_valid_left or not is_valid_right:
+            return False
+        
+        return True
+    return isValid(root, cur_left_max = float('-inf'), cur_right_min = float('inf'))
+        
+        
 
 class Node:
     def __init__(self, val, left=None,right=None):
