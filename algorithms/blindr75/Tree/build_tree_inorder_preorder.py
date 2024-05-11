@@ -1,4 +1,6 @@
-"""Given two integer arrays preorder and inorder 
+"""
+[MEDIUM]
+Given two integer arrays preorder and inorder 
 where preorder is the preorder traversal of a binary tree and inorder is the inorder traversal of the same tree, 
 construct and return the binary tree.
 
@@ -7,8 +9,10 @@ Output: [3,9,20,null,null,15,7]
 
 
 """
+from algorithms.blindr75.Tree.helper import level_order_traversal
+
 class TreeNode:
-    def __init__(self, val, left, right):
+    def __init__(self, val, left=None, right=None):
         self.val = val
         self.left = left
         self.right = right
@@ -34,5 +38,13 @@ def buildTree(preorder, inorder):
     root.right = buildTree(preorder=preorder[inorder_index+1:],
                            inorder=inorder[inorder_index+1:])
     return root
+
     
-    
+preorder = [3,9,20,15,7]
+inorder = [9,3,15,20,7]
+
+tree = buildTree(preorder=preorder,
+          inorder=inorder)
+
+assert level_order_traversal(tree) == [3, 9, 20, 15, 7]
+# Output: [3,9,20,null,null,15,7]
