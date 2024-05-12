@@ -12,10 +12,16 @@ class Node:
     def __repr__(self):
         return f'root.val: {root.val}, root.left:{root.left.val}, root.right: {root.right.val}'
 
-def invertTree(self, root): 
+def invertTree(root): 
+    """Need to do this synchronously"""
     if root is None:
         return
     root.left, root.right = invertTree(root.right), invertTree(root.left)
+    
+    ## Wrong solution
+    # root.left = invertTree(root.right)
+    # root.right = invertTree(root.left) # this will use the inverted left from the above, not the original root.left!!
+    
     return root
 
 def invertTree(root):
