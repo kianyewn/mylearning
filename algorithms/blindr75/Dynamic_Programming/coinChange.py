@@ -66,7 +66,7 @@ def dfs(coins, amount, num_coins):
 def coinChange2(coins, amount):
     return dfs(coins, amount, num_coins=0)
 
-coinChange2(coins=coins, amount=2)
+coinChange2(coins=coins, amount=2) # 1, (2,) correct
 
 def dfs2(coins, amount, memo={}):
     """Start bottom up and think about the dfs process
@@ -91,7 +91,7 @@ def dfs2(coins, amount, memo={}):
     memo[amount] = min_coins    
     return min_coins
 
-dfs2(coins=coins, amount=128, memo={}) # 3, Correct
+dfs2(coins=coins, amount=128, memo={}) # 27, Correct
 
 
 def coin_change_dp(coins, amount):
@@ -108,7 +108,7 @@ def coin_change_dp(coins, amount):
                 dp[i] = min(dp[i], dp[i+coin] + 1)
     return dp[0]
 
-coin_change_dp(coins=coins, amount=11)
+assert coin_change_dp(coins=coins, amount=11) ==3 # correct
                 
                 
 
