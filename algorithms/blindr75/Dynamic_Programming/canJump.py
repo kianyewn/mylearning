@@ -90,3 +90,41 @@ Solution().canJump(nums)
 
 # for i in range(1,1):
 #     print(i)
+
+def canJumpNaive(nums):
+    # can reach dp
+    dp = [0] * (len(nums))
+    # dp[0] = 1 # what is num[0] is 0. then the solution should be false
+    for i in range(len(nums)):
+        for step in range(1, nums[i]+1):
+            max_step = min(i+step, len(nums)-1)
+            if dp[max_step] == 0:
+                dp[max_step] = 1
+
+            if i == 0 and nums[i] > 0:
+                dp[i] = 1
+
+    print(dp)
+    return sum(dp) == len(nums)
+    
+    
+def canJump(nums):
+    goal = len(nums)-1
+    for i in range(len(nums)-2, -1, -1):
+        print(i, i + nums[i])
+        if i + nums[i] >= goal:
+            goal = i
+    return goal == 0 
+        
+nums = [2,3,1,1,4]
+canJump(nums)
+canJumpNaive(nums)
+
+
+nums = [2,0,0,1,4]
+print(canJump(nums))
+canJumpNaive(nums)
+
+nums = [0,1,1,1,4]
+print(canJump(nums))
+canJumpNaive(nums)
